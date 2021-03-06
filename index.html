@@ -1,0 +1,654 @@
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <title>UT210E EEPROM Calculator</title>
+        <link rel="stylesheet" href="http://code.jquery.com/ui/1.11.3/themes/smoothness/jquery-ui.css">
+        <script
+            src="https://code.jquery.com/jquery-3.5.1.min.js"
+            integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0="
+            crossorigin="anonymous"></script>
+        <script
+            src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"
+            integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU="
+            crossorigin="anonymous"></script>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+        <style>
+            body {
+                padding: 0;
+                font-family: monospace;
+            }
+            header, footer, .container {
+                padding: 2em;
+            }
+            header, footer {
+                background-color: #DA2735;
+                width: 100%;
+                text-align: center;
+            }
+            header, footer, footer a, footer a:hover {
+                color: white;
+            }
+            header h1 {
+                font-weight: bolder;
+            }
+            .container{
+                margin-bottom: 5em;
+            }
+
+            #funcContainer {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            } 
+
+            #hexContainer {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+            } 
+
+            #hexContainer div {
+                border: 1px solid black;
+                background-color: red;
+            } 
+        </style>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+    </head>
+    <body>
+        <header>
+            <h1>UT210E EEPROM Calculator</h1>
+        </header>
+        <div class="container">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title">How-To</h2>
+                    <div class="card-text">
+                        <p>This script is intended to modify a binary UniTrend UT210E EEPROM dump to change its ASIC configuration. Start by uploading the original EEPROM dump. The page should load all values and display the current configuration. Once loaded use the quick setting buttons or dedicated input boxes to change the configuration to your requirements. Lastly scroll to the very bottom of the page, verify changes and download the modified EEPROM dump. Most functionality is untested. Using it might cause permanent damage to your device or brain. Use at your own risk.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title">Upload</h2>
+                    <div class="card-text">
+                        <p>Upload your binary EEPROM dump here. It will be used as a basis as it contains calibration data specific to your device.</p>
+                        <label for="romDump">EEPROM-Dump: </label>
+                        <input id="romDump" type="file" name="romDump" onchange="romCalc();" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title">Quick Settings</h2>
+                    <div class="card-text">
+                        <button id="dl" type="button" class="btn btn-dark" onclick="autoACDC();">Swap DC and AC</button>
+                        <button id="dl" type="button" class="btn btn-dark" onclick="autoContinuity();">Swap Continuity/Resistance</button>
+                        <button id="dl" type="button" class="btn btn-dark" onclick="set6k();">Set 6000 Count</button>
+                        <button id="dl" type="button" class="btn btn-dark" onclick="set10k();">Set 9999 Count</button>
+                        <button id="dl" type="button" class="btn btn-dark" onclick="set6afix();">Add 6A 2000 Count Workaround</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title">Timeouts</h2>
+                    <div class="card-text">
+                        <div class="form-group row">
+                            <label for="backlight" class="col-sm-2 col-form-label">Backlight: </label>
+                            <input type="number" id="backlight" value="" min="0" max="255" class="col-sm-6" onchange="setByte(this, 0xFB);">
+                            <label for="backlight" class="col-sm-4 col-form-label">Seconds (0 = infinite)</label>
+                        </div>
+                        <div class="form-group row">
+                            <label for="autoOff" class="col-sm-2 col-form-label">Auto-Off: </label>
+                            <input type="number" id="autoOff" value="" min="0" max="255" class="col-sm-6" onchange="setByte(this, 0xFC);">
+                            <label for="autoOff" class="col-sm-4 col-form-label">Minutes (0 = infinite)</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title">Functions</h2>
+                    <div class="card-text">
+                        <p>Native functions are selected when rotating the function selector to the appropiate selection. Functions 1 to 3 can be selected by pressing the blue select button. Note that besides this software configuration the selector also changes measurement connections, so for example configuring a voltage measurement to an ampere range <b>won't work</b>.</p>
+                        <div id="funcContainer">
+                            <div id="FuncV"></div>
+                            <div id="FuncO"></div>
+                            <div id="Func2"></div>
+                            <div id="Func20"></div>
+                            <div id="Func100"></div>
+                            <div id="FuncNCV"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title">Resolution</h2>
+                    <div class="card-text">
+                        <p>The UT210E is sold as 2000 Counts, however this is an artificial limitation, probably to not cannibalize more expensive models. Depending on the IC used in your device it is actually rated for 6000 (DTM0660L/older units) or 9999 (DM1106EN/newer units) counts. <small><a href="https://github.com/bdlow/UT210E#zeroing-2000-counts-bug">There is a bug</a>: When >2000 counts and zeroizing is used on 2A-Range it will still max out at ~2A. You can circument this by using 6000A countless, however you need to copy calibration data.</small></p>
+                        
+                        <div class="form-group row">
+                            <label for="fullScale" class="col-sm-2 col-form-label">Full Scale: </label>
+                            <input type="number" id="fullScale" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x10);">
+                            <label for="fullScale" class="col-sm-4 col-form-label">Counts (Default: 6000)</label>
+                        </div>
+                        <div class="form-group row">
+                            <label for="rangeUpper" class="col-sm-2 col-form-label">Range Switch Upper Limit: </label>
+                            <input type="number" id="rangeUpper" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x12);">
+                            <label for="rangeUpper" class="col-sm-4 col-form-label">Counts (UT210: 2200, IC: 6200)</label>
+                        </div>
+                        <div class="form-group row">
+                            <label for="rangeLower" class="col-sm-2 col-form-label">Range Switch Lower Limit: </label>
+                            <input type="number" id="rangeLower" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x14);">
+                            <label for="rangeLower" class="col-sm-4 col-form-label">Counts (UT210: 190, IC: 580)</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title">Limits</h2>
+                    <div class="form-group row">
+                        <label for="DCOL" class="col-sm-2 col-form-label">DC Voltage OL:</label>
+                        <input type="number" id="DCOL" value="" min="0" max="255" class="col-sm-6" onchange="setByte(this, 0x16);">
+                        <label for="DCOL" class="col-sm-4 col-form-label">*10V (UT210: 61*10V, IC: 110*10V)</label>
+                    </div>
+                    <div class="form-group row">
+                        <label for="ACOL" class="col-sm-2 col-form-label">AC Voltage OL:</label>
+                        <input type="number" id="ACOL" value="" min="0" max="255" class="col-sm-6" onchange="setByte(this, 0x17);">
+                        <label for="ACOL" class="col-sm-4 col-form-label">*10V (UT210: 61*10V, IC: 75*10V)</label>
+                    </div>
+                    <div class="form-group row">
+                        <label for="DCW" class="col-sm-2 col-form-label">DC Voltage warning:</label>
+                        <input type="number" id="DCW" value="" min="0" max="255" class="col-sm-6" onchange="setByte(this, 0x18);">
+                        <label for="DCW" class="col-sm-4 col-form-label">*10V (UT210: 60*10V, IC: 100*10V)</label>
+                    </div>
+                    <div class="form-group row">
+                        <label for="ACW" class="col-sm-2 col-form-label">AC Voltage warning:</label>
+                        <input type="number" id="ACW" value="" min="0" max="255" class="col-sm-6" onchange="setByte(this, 0x19);">
+                        <label for="ACW" class="col-sm-4 col-form-label">*10V (Default: 60*10V)</label>
+                    </div>
+                    <div class="form-group row">
+                        <label for="uAW" class="col-sm-2 col-form-label">µA warning:</label>
+                        <input type="number" id="uAW" value="" min="0" max="255" class="col-sm-6" onchange="setByte(this, 0x1A);">
+                        <label for="uAW" class="col-sm-4 col-form-label">*100µA (Default: 60*100µA, not used on UT210)</label>
+                    </div>
+                    <div class="form-group row">
+                        <label for="mAW" class="col-sm-2 col-form-label">mA warning:</label>
+                        <input type="number" id="mAW" value="" min="0" max="255" class="col-sm-6" onchange="setByte(this, 0x1B);">
+                        <label for="mAW" class="col-sm-4 col-form-label">*100mA (Default: 60*100mA, not used on UT210)</label>
+                    </div>
+                    <div class="form-group row">
+                        <label for="AW" class="col-sm-2 col-form-label">A warning:</label>
+                        <input type="number" id="AW" value="" min="0" max="255" class="col-sm-6" onchange="setByte(this, 0x1C);">
+                        <label for="AW" class="col-sm-4 col-form-label">A (Default: 10A)</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title">Calibration</h2>
+                    <div class="form-group row">
+                        <label for="TXT_0x20" class="col-sm-2 col-form-label">Amplifier Value:</label>
+                        <input type="number" id="TXT_0x20" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x20);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x22" class="col-sm-2 col-form-label">500mV calibration adjustment ratio:</label>
+                        <input type="number" id="TXT_0x22" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x22);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x24" class="col-sm-2 col-form-label">NCV base bumber (10mV):</label>
+                        <input type="number" id="TXT_0x24" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x24);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x26" class="col-sm-2 col-form-label">NCV resolution (15mV):</label>
+                        <input type="number" id="TXT_0x26" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x26);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x28" class="col-sm-2 col-form-label">AC 6V range compensation ratio (frequency):</label>
+                        <input type="number" id="TXT_0x28" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x28);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x2A" class="col-sm-2 col-form-label">500uA calibration adjustment ratio:</label>
+                        <input type="number" id="TXT_0x2A" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x2A);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x2C" class="col-sm-2 col-form-label">50mA calibration adjustment ratio:</label>
+                        <input type="number" id="TXT_0x2C" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x2A);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x2E" class="col-sm-2 col-form-label">5A calibration adjustment ratio:</label>
+                        <input type="number" id="TXT_0x2E" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x2E);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x60" class="col-sm-2 col-form-label">50K resistor calibration adjustment ratio:</label>
+                        <input type="number" id="TXT_0x60" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x60);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x62" class="col-sm-2 col-form-label">50M resistor calibration adjustment ratio:</label>
+                        <input type="number" id="TXT_0x62" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x62);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x70" class="col-sm-2 col-form-label">500nF capacitor calibration adjustment ratio:</label>
+                        <input type="number" id="TXT_0x70" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x70);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x74" class="col-sm-2 col-form-label">50uF capacitor calibration adjustment ratio:</label>
+                        <input type="number" id="TXT_0x74" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x74);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x76" class="col-sm-2 col-form-label">50mF capacitor calibration adjustment ratio:</label>
+                        <input type="number" id="TXT_0x76" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x76);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x50" class="col-sm-2 col-form-label">6A range calibration adjustment ratio:</label>
+                        <input type="number" id="TXT_0x50" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x50);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x52" class="col-sm-2 col-form-label">60A range calibration adjustment ratio:</label>
+                        <input type="number" id="TXT_0x52" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x52);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x54" class="col-sm-2 col-form-label">600A range calibration adjustment ratio:</label>
+                        <input type="number" id="TXT_0x54" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x54);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x56" class="col-sm-2 col-form-label">6000A range calibration adjustment ratio:</label>
+                        <input type="number" id="TXT_0x56" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x56);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x40" class="col-sm-2 col-form-label">AC 60mV range noise to be subtracted (internal amplifier):</label>
+                        <input type="number" id="TXT_0x40" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x40);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x42" class="col-sm-2 col-form-label">AC 600mV range noise to be subtracted (internal amplifier):</label>
+                        <input type="number" id="TXT_0x42" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x42);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x44" class="col-sm-2 col-form-label">AC 600mV range noise to be subtracted (10M/1.111M):</label>
+                        <input type="number" id="TXT_0x44" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x44);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x46" class="col-sm-2 col-form-label">AC 6V range noise to be subtracted (10M/1.111M):</label>
+                        <input type="number" id="TXT_0x46" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x46);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x48" class="col-sm-2 col-form-label">AC 60V range noise to be subtracted (10M/101K):</label>
+                        <input type="number" id="TXT_0x48" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x48);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x4A" class="col-sm-2 col-form-label">AC 600V range noise to be subtracted (10M/10K):</label>
+                        <input type="number" id="TXT_0x4A" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x4A);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x4C" class="col-sm-2 col-form-label">AC 1000V range noise to be subtracted (10M/1K):</label>
+                        <input type="number" id="TXT_0x4C" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x4C);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0x78" class="col-sm-2 col-form-label">Capacitor 9nF range base line to be subtracted:</label>
+                        <input type="number" id="TXT_0x78" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0x78);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0xE8" class="col-sm-2 col-form-label">DC 600mV range calibration adjustment ratio:</label>
+                        <input type="number" id="TXT_0xE8" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0xE8);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0xEA" class="col-sm-2 col-form-label">DC 6V range calibration adjustment ratio:</label>
+                        <input type="number" id="TXT_0xEA" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0xEA);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0xEC" class="col-sm-2 col-form-label">DC 60V range calibration adjustment ratio:</label>
+                        <input type="number" id="TXT_0xEC" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0xEC);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0xEE" class="col-sm-2 col-form-label">DC 600V range calibration adjustment ratio:</label>
+                        <input type="number" id="TXT_0xEE" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0xEE);">
+                    </div>
+                    <div class="form-group row">
+                        <label for="TXT_0xF0" class="col-sm-2 col-form-label">DC 1000V range calibration adjustment ratio:</label>
+                        <input type="number" id="TXT_0xF0" value="" min="0" max="65535" class="col-sm-6" onchange="setByte2(this, 0xF0);">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title">...and more?</h2>
+                    <div class="card-text">
+                        <p>There are several other configuration registers I was too lazy to implement. Feel free to submit a pull request!</p>
+                    </div>
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title">Raw Data</h2>
+                    <div class="card-text">
+                        <p>You probably do not want to touch anything here. Just download the new EEPROM file below once done.</p>
+                        <div id="hexContainer">
+                        </div>
+                        <button id="dl" type="button" class="btn btn-primary" onclick="generateFile();">Download</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="fixed-bottom">Florian Knodt 2021 - <a href="https://adlerweb.info">Adlerweb//BitBastelei</a></footer>
+
+        
+        <script>
+            window.fileByteArray = [];
+
+            function utFncBlock(target, prefix, name) {
+                document.getElementById(target).innerHTML = `<div id="Func` + prefix + `">
+                                    <h2>`+name+`</h2>
+                                    <div class="row">
+                                        <label for="Func_8` + prefix + `" class="col-sm-3">Native</label>
+                                        <div class="col-sm-4" id="SelD_8` + prefix + `">` + utFncSelectArea('Sel_8'+prefix) + `</div>
+                                    </div>
+                                    <div class="row">
+                                        <label for="Func_9` + prefix + `" class="col-sm-3">Fnc1</label>
+                                        <div class="col-sm-4" id="SelD_9` + prefix + `">` + utFncSelectArea('Sel_9'+prefix) + `</div>
+                                    </div>
+                                    <div class="row">
+                                        <label for="Func_A` + prefix + `" class="col-sm-3">Fnc2</label>
+                                        <div class="col-sm-4" id="SelD_A` + prefix + `">` + utFncSelectArea('Sel_A'+prefix) + `</div>
+                                    </div>
+                                    <div class="row">
+                                        <label for="Func_B` + prefix + `" class="col-sm-3">Fnc3</label>
+                                        <div class="col-sm-4" id="SelD_B` + prefix + `">` + utFncSelectArea('Sel_B'+prefix) + `</div>
+                                    </div>
+                                </div>`
+            }
+
+            function utFncSelectArea(ident) {
+                return '<select id="' + ident + `" onchange="updateFunc(this);">
+                                    <option value="00">--disabled--</option>
+                                    <option value="01">DC mV</option>
+                                    <option value="02">AC mV</option>
+                                    <option value="03">DC V (Dotless)</option>
+                                    <option value="04">AC V (Dotless)</option>
+                                    <option value="05">DC V</option>
+                                    <option value="06">AC V</option>
+                                    <option value="07">Resistance Ω</option>
+                                    <option value="09">Continuity</option>
+                                    <option value="0A">Diode</option>
+                                    <option value="0B">Capacitance</option>
+                                    <option value="0C">DC µA</option>
+                                    <option value="0D">AC µA</option>
+                                    <option value="0E">DC mA</option>
+                                    <option value="0F">AC mA</option>
+                                    <option value="10">DC A 6A/60A</option>
+                                    <option value="11">AC A 6A/60A</option>
+                                    <option value="16">DC A 6A</option>
+                                    <option value="17">AC A 6A</option>
+                                    <option value="18">DC A 60A</option>
+                                    <option value="19">AC A 60A</option>
+                                    <option value="1A">DC A 600A</option>
+                                    <option value="1B">AC A 600A</option>
+                                    <option value="1C">DC A 6000A</option>
+                                    <option value="1D">AC A 6000A</option>
+                                    <option value="12">Frequency Hz / Duty Cycle</option>
+                                    <option value="1E">NCV</option>
+                                    <option value="13">Temperature °C</option>
+                                    <option value="15">Temperature °F</option>
+                                    <option value="14">hFE</option>
+                                </select>`;
+            }
+
+            function genHex() {
+                out = ""
+                for(i=0; i<256; i++) {
+                    out += '<div id="0x'+i.toString(16).padStart(2, "0")+'" title="0x'+i.toString(16).padStart(2, "0")+'">0x??</div>';
+                }
+                document.getElementById('hexContainer').innerHTML = out;
+            }
+
+            function load2ByteROM(addr) {
+                addr_i = parseInt(addr);
+                document.getElementById('TXT_'+addr).value=(window.fileByteArray[addr_i+1] << 8) | window.fileByteArray[addr];
+                //console.log('TXT_'+addr+' ('+addr_i+') -> '+document.getElementById('TXT_'+addr).value);
+            }
+
+            function refreshFields() {
+                document.getElementById('backlight').value=window.fileByteArray[0xFB];
+                document.getElementById('autoOff').value=window.fileByteArray[0xFC];
+
+                setDropdown('Sel_8E', window.fileByteArray[0x8E]);
+                setDropdown('Sel_9E', window.fileByteArray[0x9E]);
+                setDropdown('Sel_AE', window.fileByteArray[0xAE]);
+                setDropdown('Sel_BE', window.fileByteArray[0xBE]);
+
+                setDropdown('Sel_8F', window.fileByteArray[0x8F]);
+                setDropdown('Sel_9F', window.fileByteArray[0x9F]);
+                setDropdown('Sel_AF', window.fileByteArray[0xAF]);
+                setDropdown('Sel_BF', window.fileByteArray[0xBF]);
+
+                setDropdown('Sel_87', window.fileByteArray[0x87]);
+                setDropdown('Sel_97', window.fileByteArray[0x97]);
+                setDropdown('Sel_A7', window.fileByteArray[0xA7]);
+                setDropdown('Sel_B7', window.fileByteArray[0xB7]);
+
+                setDropdown('Sel_8B', window.fileByteArray[0x8B]);
+                setDropdown('Sel_9B', window.fileByteArray[0x9B]);
+                setDropdown('Sel_AB', window.fileByteArray[0xAB]);
+                setDropdown('Sel_BB', window.fileByteArray[0xBB]);
+
+                setDropdown('Sel_8D', window.fileByteArray[0x8D]);
+                setDropdown('Sel_9D', window.fileByteArray[0x9D]);
+                setDropdown('Sel_AD', window.fileByteArray[0xAD]);
+                setDropdown('Sel_BD', window.fileByteArray[0xBD]);
+
+                setDropdown('Sel_8C', window.fileByteArray[0x8C]);
+                setDropdown('Sel_9C', window.fileByteArray[0x9C]);
+                setDropdown('Sel_AC', window.fileByteArray[0xAC]);
+                setDropdown('Sel_BC', window.fileByteArray[0xBC]);
+
+                document.getElementById('fullScale').value=(window.fileByteArray[0x11] << 8) | window.fileByteArray[0x10];
+                document.getElementById('rangeUpper').value=(window.fileByteArray[0x13] << 8) | window.fileByteArray[0x12];
+                document.getElementById('rangeLower').value=(window.fileByteArray[0x15] << 8) | window.fileByteArray[0x14];
+
+                document.getElementById('DCOL').value=window.fileByteArray[0x16];
+                document.getElementById('ACOL').value=window.fileByteArray[0x17];
+                document.getElementById('DCW').value=window.fileByteArray[0x18];
+                document.getElementById('ACW').value=window.fileByteArray[0x19];
+                document.getElementById('uAW').value=window.fileByteArray[0x1A];
+                document.getElementById('mAW').value=window.fileByteArray[0x1B];
+                document.getElementById('AW').value=window.fileByteArray[0x1C];
+
+                load2ByteROM('0x20');
+                load2ByteROM('0x22');
+                load2ByteROM('0x24');
+                load2ByteROM('0x26');
+                load2ByteROM('0x28');
+                load2ByteROM('0x2A');
+                load2ByteROM('0x2C');
+                load2ByteROM('0x2E');
+                load2ByteROM('0x60');
+                load2ByteROM('0x62');
+                load2ByteROM('0x70');
+                load2ByteROM('0x74');
+                load2ByteROM('0x76');
+                load2ByteROM('0x50');
+                load2ByteROM('0x52');
+                load2ByteROM('0x54');
+                load2ByteROM('0x56');
+                load2ByteROM('0x40');
+                load2ByteROM('0x42');
+                load2ByteROM('0x44');
+                load2ByteROM('0x46');
+                load2ByteROM('0x48');
+                load2ByteROM('0x4A');
+                load2ByteROM('0x4C');
+                load2ByteROM('0x78');
+                load2ByteROM('0xE8');
+                load2ByteROM('0xEA');
+                load2ByteROM('0xEC');
+                load2ByteROM('0xEE');
+                load2ByteROM('0xF0');
+            }
+
+            function romCalc() {
+                var oFReader = new FileReader();
+                oFReader.readAsArrayBuffer(document.getElementById("romDump").files[0]);
+                oFReader.onload = function (oFREvent) {
+                    if (oFREvent.target.readyState == FileReader.DONE) {
+                        var arrayBuffer = oFREvent.target.result,
+                                array = new Uint8Array(arrayBuffer);
+                        if(array.length != 256) {
+                            alert("File Size != 256 Bytes. Probably no binary EEPROM dump! Aborting!");
+                        }else{
+                            window.fileByteArray = [];
+                            for(i=0; i<256; i++) {
+                                window.fileByteArray.push(array[i]);
+                                document.getElementById('0x'+i.toString(16).padStart(2, "0")).innerHTML='0x'+array[i].toString(16).padStart(2, "0");
+                                document.getElementById('0x'+i.toString(16).padStart(2, "0")).style.backgroundColor='green';
+                            }
+
+                            refreshFields();
+                        }
+                        
+                    }
+                };
+            };
+
+            function setByteVal(value ,target) {
+                hexEd = document.getElementById('0x'+target.toString(16).padStart(2, "0"));
+                if(hexEd.innerHTML != '0x'+parseInt(value).toString(16).padStart(2, "0")) {
+                    hexEd.style.backgroundColor = 'yellow';
+                    hexEd.innerHTML = '0x'+parseInt(value).toString(16).padStart(2, "0");
+                    fileByteArray[target] = parseInt(value);
+                }
+            }
+
+            function setByte(self ,target) {
+                setByteVal(parseInt(self.value), target);
+            }
+
+            function setByte2(self ,target) {
+                dataLow = '0x'+(parseInt(self.value) & 0xFF).toString(16).padStart(2, "0");
+                dataHigh = '0x'+(parseInt(self.value) >> 8).toString(16).padStart(2, "0");
+                setByteVal(dataLow, target);
+                setByteVal(dataHigh, target+1);
+            }
+
+            function setDropdown(obj, val) {
+                drpdn = document.getElementById(obj);
+                ndata = parseInt(val).toString(16).padStart(2, "0").toUpperCase();
+                //console.log(ndata);
+                for (i=0; i<drpdn.options.length; i++) {
+                    if (drpdn.options[i].value == ndata) {
+                        drpdn.style.color="green";
+                        drpdn.options[i].selected = true;
+                        break;
+                    }
+                }
+            }
+
+            function updateFunc(self) {
+                id = self.id.substr(4).toLowerCase();
+                value = self.value;
+                hexEd = document.getElementById('0x'+id);
+                if(hexEd.innerHTML != '0x'+value) {
+                    hexEd.style.backgroundColor = 'yellow';
+                    hexEd.innerHTML = '0x'+value;
+                    window.fileByteArray[parseInt('0x'+id)] = parseInt(value);
+                    //console.log('0x'+id+' -> '+parseInt(value)+' -> '+window.fileByteArray['0x'+id]);
+                }
+            }
+
+            jQuery(document).ready(function() {
+                utFncBlock('FuncV', 'E', 'V');
+                utFncBlock('FuncO', 'F', 'Ω');
+                utFncBlock('Func2', '7', '2A');
+                utFncBlock('Func20', 'B', '20A');
+                utFncBlock('Func100', 'D', '100A');
+                utFncBlock('FuncNCV', 'C', 'NCV');
+
+                genHex();
+            });
+
+            function generateFile() {
+                //console.log(window.fileByteArray);
+                var byteArray = new Uint8Array(window.fileByteArray.map(e => e));
+                var blob = new Blob([byteArray], {type: 'application/octet-stream'});
+                //console.log(blob);
+                if(window.navigator.msSaveOrOpenBlob) {
+                    window.navigator.msSaveBlob(blob, 'ut210e-edited.bin');
+                }
+                else{
+                    var elem = window.document.createElement('a');
+                    elem.href = window.URL.createObjectURL(blob);
+                    elem.download = 'ut210e-edited.bin';        
+                    document.body.appendChild(elem);
+                    elem.click();        
+                    document.body.removeChild(elem);
+                }
+            }
+
+            function swapFields(f1, f2) {
+                f1hn = '0x' + parseInt(f1).toString(16).padStart(2, "0").toLowerCase();
+                f2hn = '0x' + parseInt(f2).toString(16).padStart(2, "0").toLowerCase();
+                f1sn = 'Sel_' + parseInt(f1).toString(16).padStart(2, "0").toUpperCase();
+                f2sn = 'Sel_' + parseInt(f2).toString(16).padStart(2, "0").toUpperCase();
+
+                dd1v = parseInt(document.getElementById(f1hn).innerHTML);
+                dd2v = parseInt(document.getElementById(f2hn).innerHTML);
+
+                setDropdown(f1sn, dd2v);
+                setByteVal(dd2v, f1);
+
+                setDropdown(f2sn, dd1v);
+                setByteVal(dd1v, f2);
+            }
+
+            function autoContinuity() {
+                swapFields(0x8F, 0x9F);
+            }
+
+            function autoACDC() {
+                swapFields(0x8E, 0x9E);
+                swapFields(0x87, 0x97);
+                swapFields(0x8B, 0x9B);
+                swapFields(0x8D, 0x9D);
+            }
+
+            function set6k() {
+                document.getElementById('fullScale').value = '6000';
+                setByte2(document.getElementById('fullScale'), 0x10);
+                document.getElementById('rangeUpper').value = '6200';
+                setByte2(document.getElementById('rangeUpper'), 0x12);
+                document.getElementById('rangeLower').value = '580';
+                setByte2(document.getElementById('rangeLower'), 0x14);
+            }
+
+            function set10k() {
+                document.getElementById('fullScale').value = '9999';
+                setByte2(document.getElementById('fullScale'), 0x10);
+                document.getElementById('rangeUpper').value = '9999';
+                setByte2(document.getElementById('rangeUpper'), 0x12);
+                document.getElementById('rangeLower').value = '7250';
+                setByte2(document.getElementById('rangeLower'), 0x14);
+            }
+
+            function set6afix() {
+                setByteVal(window.fileByteArray[0x50], 0x56);
+                setByteVal(window.fileByteArray[0x51], 0x57);
+                setByteVal(0x1C, 0xA7);
+                setByteVal(0x1D, 0xB7);
+                setByteVal(0xFF, 0x1C);
+                refreshFields();
+            }
+        </script>
+    </body>
+</html>
