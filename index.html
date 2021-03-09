@@ -562,7 +562,7 @@
                 if(hexEd.innerHTML != '0x'+value) {
                     hexEd.style.backgroundColor = 'yellow';
                     hexEd.innerHTML = '0x'+value;
-                    window.fileByteArray[parseInt('0x'+id)] = parseInt(value);
+                    window.fileByteArray[parseInt('0x'+id)] = parseInt('0x'+value);
                     //console.log('0x'+id+' -> '+parseInt(value)+' -> '+window.fileByteArray['0x'+id]);
                 }
             }
