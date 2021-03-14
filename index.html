@@ -98,12 +98,12 @@
                     <div class="card-text">
                         <div class="form-group row">
                             <label for="backlight" class="col-sm-2 col-form-label">Backlight: </label>
-                            <input type="number" id="backlight" value="" min="0" max="255" class="col-sm-6" onchange="setByte(this, 0xFB);">
+                            <input type="number" id="backlight" value="" min="0" max="255" class="col-sm-6" onchange="setByte(this, 0xFC);">
                             <label for="backlight" class="col-sm-4 col-form-label">Seconds (0 = infinite)</label>
                         </div>
                         <div class="form-group row">
                             <label for="autoOff" class="col-sm-2 col-form-label">Auto-Off: </label>
-                            <input type="number" id="autoOff" value="" min="0" max="255" class="col-sm-6" onchange="setByte(this, 0xFC);">
+                            <input type="number" id="autoOff" value="" min="0" max="255" class="col-sm-6" onchange="setByte(this, 0xFB);">
                             <label for="autoOff" class="col-sm-4 col-form-label">Minutes (0 = infinite)</label>
                         </div>
                     </div>
@@ -421,8 +421,8 @@
             }
 
             function refreshFields() {
-                document.getElementById('backlight').value=window.fileByteArray[0xFB];
-                document.getElementById('autoOff').value=window.fileByteArray[0xFC];
+                document.getElementById('backlight').value=window.fileByteArray[0xFC];
+                document.getElementById('autoOff').value=window.fileByteArray[0xFB];
 
                 setDropdown('Sel_8E', window.fileByteArray[0x8E]);
                 setDropdown('Sel_9E', window.fileByteArray[0x9E]);
