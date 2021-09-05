@@ -505,9 +505,10 @@
                     if (oFREvent.target.readyState == FileReader.DONE) {
                         var arrayBuffer = oFREvent.target.result,
                                 array = new Uint8Array(arrayBuffer);
-                        if(array.length != 256) {
-                            alert("File Size != 256 Bytes. Probably no binary EEPROM dump! Aborting!");
+                        if(array.length < 256) {
+                            alert("File size < 256 bytes. File might be broken or no binary EEPROM dump! Aborting.");
                         }else{
+                            if(array.length != 256) alert("File size != 256 bytes. File might be broken or from a different device. Continue at own risk.");
                             window.fileByteArray = [];
                             for(i=0; i<256; i++) {
                                 window.fileByteArray.push(array[i]);
@@ -517,7 +518,6 @@
 
                             refreshFields();
                         }
-                        
                     }
                 };
             };
