@@ -416,9 +416,11 @@
 
             function load2ByteROM(addr) {
                 addr_i = parseInt(addr);
-                document.getElementById('TXT_'+addr).value=(window.fileByteArray[addr_i+1] << 8) | window.fileByteArray[addr];
-                //console.log('TXT_'+addr+' ('+addr_i+') -> '+document.getElementById('TXT_'+addr).value);
+                v=(window.fileByteArray[addr_i+1] << 8) | window.fileByteArray[addr_i];
+                document.getElementById('TXT_'+addr).value=v;
+                //console.log("Bytes@"+addr+"="+"0x"+v.toString(16).padStart(2, "0"));
             }
+
 
             function refreshFields() {
                 document.getElementById('backlight').value=window.fileByteArray[0xFC];
